@@ -104,12 +104,15 @@
 
     iterator = iterator || _.identity;
     let returnArray = []
+    let transformedReturnArray = [];
+    let indices = [];
 
     if(isSorted) {
       let storage
-      _.each(array, function(element) {
+      _.each(array, function(element, index) {
         if(storage != iterator(element)) {
           returnArray.push(iterator(element))
+          indices.push(index);
         }
         storage = iterator(element)
       })
@@ -119,9 +122,14 @@
           returnArray.push(iterator(element))
         }
       })
+      return returnArray
     }
 
-    return returnArray
+    _.each(indices, function(index) {
+      transformedReturnArray.push(array[index])
+    })
+    
+    return transformedReturnArray
   };
 
 
@@ -176,6 +184,17 @@
   //   }); // should be 5, regardless of the iterator function passed in
   //          No accumulator is given so the first element is used.
   _.reduce = function(collection, iterator, accumulator) {
+    _.each(collection, function(element) {
+      if(accumulator === undefined) {
+        accumulator = element
+      } else {
+        let result = iterator(accumulator, element)
+        accumulator = result != undefined ? result : accumulator
+      }
+    })
+
+    return accumulator
+    
     let sliceIndex = accumulator ? 0 : 1
     accumulator = accumulator != undefined ? accumulator : collection[0]
 
@@ -202,12 +221,23 @@
   // Determine whether all of the elements match a truth test.
   _.every = function(collection, iterator) {
     // TIP: Try re-using reduce() here.
+    iterator = iterator || _.identity
+    return _.reduce(collection, function(allTrue, element) {
+      if(allTrue) {
+        return iterator(element) ? true : false
+      }
+      return false
+    }, true)
   };
 
   // Determine whether any of the elements pass a truth test. If no iterator is
   // provided, provide a default one
   _.some = function(collection, iterator) {
     // TIP: There's a very clever way to re-use every() here.
+    iterator = iterator || _.identity
+    return _.every(collection, function(element) {
+      return  iterator(element) ? false : true
+    }) ? false : true
   };
 
 
@@ -230,11 +260,31 @@
   //     bla: "even more stuff"
   //   }); // obj1 now contains key1, key2, key3 and bla
   _.extend = function(obj) {
+    for(let i = 0; i < arguments.length; i++) {
+      if(i != 0) {
+        for(let key in arguments[i]) {
+          obj[key] = arguments[i][key]
+        }
+      }
+    }
+
+    return obj;
   };
 
   // Like extend, but doesn't ever overwrite a key that already
   // exists in obj
   _.defaults = function(obj) {
+    for(let i = 0; i < arguments.length; i++) {
+      if(i != 0) {
+        for(let key in arguments[i]) {
+          if(obj[key] === undefined) {
+            obj[key] = arguments[i][key]  
+          }
+        }
+      }
+    }
+
+    return obj;
   };
 
 
@@ -278,6 +328,43 @@
   // already computed the result for the given argument and return that value
   // instead if possible.
   _.memoize = function(func) {
+    var resultDict = {}
+    var memoized = function() {
+      
+      let parameters = []
+      for(let i = 0; i < arguments.length; i ++) {
+        parameters.push(arguments[i])
+      }
+      let someRecursion = function(element) {
+        let str = ''
+        if(Array.isArray(element)) {
+          str += '['
+          for(let i = 0; i < element.length; i++) {
+            str += someRecursion(element[i])
+            if(i != element.length - 1) {
+              str += ','
+            }
+          }
+          str += ']'
+          return str
+        } else {
+          str += element
+          return str
+        }
+      }
+      let strParameters = someRecursion(parameters)
+      let result
+      if(resultDict[strParameters] === undefined) {
+        result = func.apply(this, arguments)
+        resultDict[strParameters] = result
+      } else {
+        result = resultDict[strParameters]//[1]  
+      }
+      
+      return result;
+    }
+
+    return memoized;
   };
 
   // Delays a function for the given number of milliseconds, and then calls
@@ -287,6 +374,13 @@
   // parameter. For example _.delay(someFunction, 500, 'a', 'b') will
   // call someFunction('a', 'b') after 500ms
   _.delay = function(func, wait) {
+    let parameters = []
+    for(let i = 2; i < arguments.length; i++) {
+      parameters.push(arguments[i])
+    }
+    setTimeout(function() {
+      func.apply(this, parameters)
+    }, wait)
   };
 
 
@@ -301,6 +395,16 @@
   // input array. For a tip on how to make a copy of an array, see:
   // http://mdn.io/Array.prototype.slice
   _.shuffle = function(array) {
+    let copyArray = array.slice(0).reverse()
+    let returnArray = []
+    for(let i = 0; i < copyArray.length; i++) {
+      if(Math.random() > 0.5) {
+        returnArray.push(copyArray[i])  
+      } else {
+        returnArray.unshift(copyArray[i])
+      }
+    }
+    return returnArray
   };
 
 
@@ -315,6 +419,11 @@
   // Calls the method named by functionOrKey on each value in the list.
   // Note: You will need to learn a bit about .apply to complete this.
   _.invoke = function(collection, functionOrKey, args) {
+    let returnArray = []
+    _.each(collection, function(element) {
+      returnArray.push(functionOrKey.apply(element))
+    })
+    return returnArray
   };
 
   // Sort the object's values by a criterion produced by an iterator.
